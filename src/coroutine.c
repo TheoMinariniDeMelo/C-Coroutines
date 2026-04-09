@@ -61,6 +61,13 @@ private void create_coroutine(int i, void(*func)(void)){
     co->func = func;
     co->status = CO_READY;
     co->stack = __get_stack_base(i);
+    co->ctx.r12 = NULL;
+    co->ctx.r13 = NULL;
+    co->ctx.r14 = NULL;
+    co->ctx.r15 = NULL;
+    co->ctx.rbp = NULL;
+    co->ctx.rbx = NULL;
+    co->ctx.rsp = co->stack;
 }
 
 public void coroutine_yield(void){
@@ -75,10 +82,11 @@ public void coroutine_yield(void){
         __switch_context(&scheduler->coroutines[current].ctx, &scheduler->coroutines[next].ctx);
 
         scheduler->coroutines[next].status = CO_RUNNING;
+        scheduler->current_idx = next;
     }else{
         __switch_context(&scheduler->ctx, &scheduler->coroutines[next].ctx);
-
         scheduler->coroutines[next].status = CO_RUNNING;
+        scheduler->current_idx = next;
     }
 }
 
@@ -102,7 +110,7 @@ public int coroutine_go(void(*func)(void)){
 }
 
 public int coroutine_completed(void){
-    for(int i = 0; i <= scheduler->count; ++i){
+    for(int i = 0; i < scheduler->count; ++i){
         if(scheduler->coroutines[i].status != CO_FINISHED) return 0;
     }
     return 1;
