@@ -3,7 +3,9 @@
 #include <stdint.h>
 #define public __attribute((visibility("default")))
 #define private __attribute((visibility("hidden")))
+
 #define COROUTINES_CAPACITY 10
+#define MAX_STACK_SIZE 4*1024
 typedef struct {
     void *rsp;
     void *rbp;
@@ -74,13 +76,18 @@ private void create_coroutine(int i, void(*func)(void)){
     co->func = func;
     co->status = CO_READY;
     co->stack = __get_stack_base(i);
+    co->stack_size = MAX_STACK_SIZE;
+
+    uintptr_t sp = (uintptr_t)co->stack + co->stack_size;
+    sp &= ~(uintptr_t)0xF;
+
+    co->ctx.rsp = (void*)sp; 
     co->ctx.r12 = NULL;
     co->ctx.r13 = NULL;
     co->ctx.r14 = NULL;
     co->ctx.r15 = NULL;
     co->ctx.rbp = NULL;
     co->ctx.rbx = NULL;
-    co->ctx.rsp = co->stack;
     co->ctx.rip = coroutine_bootstrap;
 }
 
@@ -92,15 +99,14 @@ public void coroutine_yield(void){
     if(next < 0) return;
     if(current >= 0) {
         if(scheduler->coroutines[current].status == CO_RUNNING) scheduler->coroutines[current].status = CO_READY;
-
-        __switch_context(&scheduler->coroutines[current].ctx, &scheduler->coroutines[next].ctx);
-
         scheduler->coroutines[next].status = CO_RUNNING;
+        __switch_context(&scheduler->coroutines[current].ctx, &scheduler->coroutines[next].ctx);
         scheduler->current_idx = next;
     }else{
-        __switch_context(&scheduler->ctx, &scheduler->coroutines[next].ctx);
         scheduler->coroutines[next].status = CO_RUNNING;
+        __switch_context(&scheduler->ctx, &scheduler->coroutines[next].ctx);
         scheduler->current_idx = next;
+
     }
 }
 
@@ -138,14 +144,13 @@ public void coroutine_run(void){
         if(current >= 0){
             if(scheduler->coroutines[current].status == CO_RUNNING) scheduler->coroutines[current].status = CO_READY;
 
+            scheduler->coroutines[next].status = CO_RUNNING;
             __switch_context(&scheduler->coroutines[current].ctx, &scheduler->coroutines[next].ctx);
 
-            scheduler->coroutines[next].status = CO_RUNNING;
         }
         else {
-            __switch_context(&scheduler->coroutines[current].ctx, &scheduler->coroutines[next].ctx);
-
             scheduler->coroutines[next].status = CO_RUNNING;
+            __switch_context(&scheduler->coroutines[current].ctx, &scheduler->coroutines[next].ctx);
         }
     }
 }
