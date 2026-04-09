@@ -1,26 +1,32 @@
-default coroutine_create 
-default coroutine_yield
-default coroutine_init
+default __save_context 
 
 
 %define COROUTINE_CAPACITY 10
 %define COROUTINE_STACK_SIZE 4*1024
 
-coroutine_create:
 
-; save current context and pass the execution to the scheduler
-coroutine_yield:
+;typedef struct {
+;    void *rsp;
+;    void *rbp;
+;    void *rbx;
+;    void *r12;
+;    void *r13;
+;    void *r14;
+;    void *r15;
+;    void *rip;
+;} context_s;
+; rdi = context_s
 
-; init the scheduler 
-coroutine_init:
-
-; rdi = function
-; this function create a stack to this coroutine
-coroutine_go:
-
-; run every coroutine until every coroutine finish
-coroutine_run:
-
+__save_context:
+    mov [rdi], rsp
+    mov [rdi + 8], rbp
+    mov [rdi + 16], rbx
+    mov [rdi + 24], r12
+    mov [rdi + 32], r13
+    mov [rdi + 40], r14
+    mov [rdi + 48], r15
+    mov [rdi + 56], rip
+    ret
 
 section .bss
 stack_buffer: resb COROUTINE_CAPACITY*COROUTINE_STACK_SIZE

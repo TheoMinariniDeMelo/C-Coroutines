@@ -56,6 +56,19 @@ private int find_next_finished(void){
     return -1;
 }
 
+private void coroutine_bootstrap(){
+    coroutine_s *co = &scheduler->coroutines[scheduler->current_idx];
+    co->status = CO_RUNNING;
+    co->func();
+    co->status = CO_FINISHED;
+    int next = find_next_ready();
+    if(next < 0){
+        __switch_context(&co->ctx, &scheduler->ctx);
+    }else{
+        __switch_context(&co->ctx, &scheduler->coroutines[next].ctx);
+    }
+}
+
 private void create_coroutine(int i, void(*func)(void)){
     coroutine_s *co = &scheduler->coroutines[i];
     co->func = func;
@@ -68,6 +81,7 @@ private void create_coroutine(int i, void(*func)(void)){
     co->ctx.rbp = NULL;
     co->ctx.rbx = NULL;
     co->ctx.rsp = co->stack;
+    co->ctx.rip = coroutine_bootstrap;
 }
 
 public void coroutine_yield(void){
